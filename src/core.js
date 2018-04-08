@@ -14,60 +14,59 @@
     }
 
     function getTiming() {
-        //获取页面性能相关时间信息
-        let data = { type: 0 }
         try {
-            var time = performance.timing;
-            time.type = 0
-            var timingObj = {};
-
-            var loadTime = (time.loadEventEnd - time.loadEventStart) / 1000;
-
-            if (loadTime < 0) {
+            var timing = performance.timing;
+            var loadTime = timing.loadEventEnd - timing.navigationStart;//过早获取时,loadEventEnd有时会是0
+            if (loadTime <= 0) {
+                // 未加载完，延迟200ms后继续times方法，直到成功
                 setTimeout(function () {
-                    getTiming();
+                    getTiming()
                 }, 200);
                 return;
             }
-            data.domReady = (time.domComplete - time.domLoading) / 1000;
-            data.
+            var readyStart = timing.fetchStart - timing.navigationStart;
+            var redirectTime = timing.redirectEnd - timing.redirectStart;
+            var appcacheTime = timing.domainLookupStart - timing.fetchStart;
+            var unloadEventTime = timing.unloadEventEnd - timing.unloadEventStart;
+            var lookupDomainTime = timing.domainLookupEnd - timing.domainLookupStart;
+            var connectTime = timing.connectEnd - timing.connectStart;
+            var requestTime = timing.responseEnd - timing.requestStart;
+            var initDomTreeTime = timing.domInteractive - timing.responseEnd;
+            var domReadyTime = timing.domComplete - timing.domInteractive; //过早获取时,domComplete有时会是0
+            var loadEventTime = timing.loadEventEnd - timing.loadEventStart;
 
-                timingObj['重定向时间'] = (time.redirectEnd - time.redirectStart) / 1000;
-            timingObj['DNS解析时间'] = (time.domainLookupEnd - time.domainLookupStart) / 1000;
-            timingObj['TCP完成握手时间'] = (time.connectEnd - time.connectStart) / 1000;
-            timingObj['HTTP请求响应完成时间'] = (time.responseEnd - time.requestStart) / 1000;
-            timingObj['DOM开始加载前所花费时间'] = (time.responseEnd - time.navigationStart) / 1000;
-            timingObj['DOM加载完成时间'] = (time.domComplete - time.domLoading) / 1000;
-            timingObj['DOM结构解析完成时间'] = (time.domInteractive - time.domLoading) / 1000;
-            timingObj['脚本加载时间'] = (time.domContentLoadedEventEnd - time.domContentLoadedEventStart) / 1000;
-            timingObj['onload事件时间'] = (time.loadEventEnd - time.loadEventStart) / 1000;
-            timingObj['页面完全加载时间'] = (timingObj['重定向时间'] + timingObj['DNS解析时间'] + timingObj['TCP完成握手时间'] + timingObj['HTTP请求响应完成时间'] + timingObj['DOM结构解析完成时间'] + timingObj['DOM加载完成时间']);
+            // 为console.table方法准备对象，包含耗时的描述和消耗的时间
+            var allTimes = [
+                { "描述": "准备新页面时间耗时", "时间(ms)": readyStart },
+                { "描述": "redirect 重定向耗时", "时间(ms)": redirectTime },
+                { "描述": "Appcache 耗时", "时间(ms)": appcacheTime },
+                { "描述": "unload 前文档耗时", "时间(ms)": unloadEventTime },
+                { "描述": "DNS 查询耗时", "时间(ms)": lookupDomainTime },
+                { "描述": "TCP连接耗时", "时间(ms)": connectTime },
+                { "描述": "request请求耗时", "时间(ms)": requestTime },
+                { "描述": "请求完毕至DOM加载", "时间(ms)": initDomTreeTime },
+                { "描述": "解释dom树耗时", "时间(ms)": domReadyTime },
+                { "描述": "load事件耗时", "时间(ms)": loadEventTime },
+                { "描述": "从开始至load总耗时", "时间(ms)": loadTime }
+            ];
+        } catch (error) {
 
-            // for (item in timingObj) {
-            //     console.log(item + ":" + timingObj[item] + '毫秒(ms)');
-            // }
-            // let data = {
-            //     redirectTime:(time.redirectEnd - time.redirectStart) / 1000,
-            //     DNSTime: (time.domainLookupEnd - time.domainLookupStart) / 1000,
-            //     TCPTime:(time.connectEnd - time.connectStart) / 1000,
-            //     HTTPTime: (time.responseEnd - time.requestStart) / 1000,
-            //     DOMbeforeTime:(time.responseEnd - time.navigationStart) / 1000,
-            //     DomAnalysisTime:(time.domInteractive - time.domLoading) / 1000,
-            //     DomDoneTime:(time.domComplete - time.domLoading) / 1000,
-            //     ScriptDoneTime:(time.domContentLoadedEventEnd - time.domContentLoadedEventStart) / 1000,
-            //     onloadTime:(time.loadEventEnd - time.loadEventStart) / 1000,
-            //     pageLoadTime:data[redirectTime]+data[DNSTime]+data[TCPTime]+data[HTTPTime]+data[DomAnalysisTime]+data
-
-
-            // }
-            // console.log(performance.timing);
-            notifyHttpError(time)
-
-        } catch (e) {
-            // console.log(timingObj)
-            // console.log(performance.timing);
-            notifyHttpError(time)
         }
+
+        console.table(allTimes);
+        notifyHttpError({
+            'readyStart':readyStart,
+            'redirectTime':redirectTime,
+            'appcacheTime':appcacheTime,
+            'lookupDomainTime':lookupDomainTime,
+            'connectTime':connectTime,
+            'requestTime':requestTime,
+            'initDomTreeTime':initDomTreeTime,
+            'domReadyTime':domReadyTime,
+            'loadEventTime':loadEventTime,
+            'loadTime':loadTime
+
+        })
     }
 
 
@@ -190,10 +189,10 @@
                     if (this.status != 200) {
                         console.log(this)
                         let data = {
-                            type:2,
-                            status:this.status,
-                            responseURL:this.responseURL,
-                            pageUrl:location.href
+                            type: 2,
+                            status: this.status,
+                            responseURL: this.responseURL,
+                            pageUrl: location.href
 
                         }
                         notifyHttpError(data)
@@ -218,7 +217,7 @@
         window.XMLHttpRequest = newXHR;
     })();
     function notifyHttpError(data) {
-        let postUrl = 'http://localhost:3000/getError?'
+        let postUrl = 'http://172.16.73.133:3000/getError?'
         for (let i in data) {
             postUrl += `${i}=${data[i]}&`
         }
